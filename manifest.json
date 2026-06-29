@@ -4,7 +4,7 @@
   "description": "A roguelike checkers puzzle game. Capture all enemies using cards.",
   "start_url": "/King-Me/",
   "scope": "/King-Me/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "theme_color": "#c8922a",
   "background_color": "#0d0b06",
