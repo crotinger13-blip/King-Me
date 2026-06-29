@@ -1,0 +1,2220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>King Me</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Courier+Prime:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #0d0d0d;
+      --board-dark: #1a1208;
+      --board-light: #2a1f0e;
+      --board-border: #3d2e12;
+      --gold: #c8922a;
+      --gold-light: #e8b84b;
+      --red: #8b2020;
+      --red-light: #c0392b;
+      --cream: #e8dcc8;
+      --gray: #2a2a2a;
+      --gray-mid: #444;
+      --gray-light: #888;
+      --green: #2d6a2d;
+      --font-display: 'Bebas Neue', sans-serif;
+      --font-mono: 'Courier Prime', monospace;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--black);
+      color: var(--cream);
+      font-family: var(--font-body);
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      gap: 0.5rem;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .title {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      letter-spacing: 0.1em;
+      color: var(--gold-light);
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(200,146,42,0.4);
+    }
+
+    .level-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.1rem;
+    }
+
+    .level-label {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--gray-light);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .level-number {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 480px;
+      background: #111;
+      border: 1px solid var(--gray);
+      padding: 0.4rem 0.75rem;
+    }
+
+    .status-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.1rem;
+    }
+
+    .status-label {
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+      color: var(--gray-light);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .status-value {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      line-height: 1;
+    }
+
+    .status-value.yours { color: var(--gold-light); }
+    .status-value.enemy { color: var(--red-light); }
+    .status-value.cards { color: var(--cream); }
+
+    /* ── BOARD ── */
+    .board-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(6, 1fr);
+      gap: 2px;
+      background: var(--board-border);
+      border: 2px solid var(--board-border);
+      padding: 2px;
+    }
+
+    .cell {
+      width: clamp(28px, 7vw, 56px);
+      height: clamp(28px, 7vw, 56px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .cell.dark { background: var(--board-dark); }
+    .cell.light { background: var(--board-light); }
+    .cell.valid-move { background: rgba(45, 106, 45, 0.5); cursor: pointer; }
+    .cell.valid-move::after {
+      content: '';
+      position: absolute;
+      width: 30%;
+      height: 30%;
+      border-radius: 50%;
+      background: rgba(80, 200, 80, 0.5);
+      border: 2px solid rgba(80, 200, 80, 0.8);
+    }
+    .cell.valid-capture { background: rgba(139, 32, 32, 0.4); }
+    .cell.valid-capture::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border: 2px solid rgba(192, 57, 43, 0.7);
+      border-radius: 2px;
+    }
+    .cell.selected { background: rgba(200, 146, 42, 0.3); }
+
+    /* ── PIECES ── */
+    .piece {
+      width: 82%;
+      height: 82%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s;
+      cursor: pointer;
+      z-index: 2;
+      flex-shrink: 0;
+    }
+
+    /* YOUR piece — stacked disc look with engraved cross */
+    .piece.yours {
+      background:
+        radial-gradient(circle at 38% 32%, #f0d878 0%, #c8922a 45%, #7a5510 100%);
+      box-shadow:
+        0 4px 0 #5a3a08,
+        0 5px 10px rgba(0,0,0,0.7),
+        inset 0 1px 3px rgba(255,255,255,0.45),
+        inset 0 -1px 2px rgba(0,0,0,0.4);
+      border: 2px solid #a07020;
+    }
+
+    .piece.yours::before {
+      content: '';
+      position: absolute;
+      width: 55%;
+      height: 55%;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,220,100,0.5);
+      box-shadow: inset 0 0 6px rgba(255,220,80,0.3);
+    }
+
+    /* ENEMY piece — dark obsidian disc */
+    .piece.enemy {
+      background:
+        radial-gradient(circle at 38% 32%, #d04848 0%, #7a1010 50%, #2a0404 100%);
+      box-shadow:
+        0 4px 0 #1a0202,
+        0 5px 10px rgba(0,0,0,0.8),
+        inset 0 1px 3px rgba(255,100,100,0.25),
+        inset 0 -1px 2px rgba(0,0,0,0.5);
+      border: 2px solid #5a0808;
+    }
+
+    .piece.enemy::before {
+      content: '';
+      position: absolute;
+      width: 55%;
+      height: 55%;
+      border-radius: 50%;
+      border: 1.5px solid rgba(200,60,60,0.4);
+    }
+
+    .piece.selected-piece {
+      transform: scale(1.15) translateY(-2px);
+      box-shadow:
+        0 0 0 3px var(--gold-light),
+        0 6px 16px rgba(0,0,0,0.8),
+        inset 0 1px 3px rgba(255,255,255,0.45);
+    }
+
+    /* KING — transforms into a crown shape entirely */
+    .piece.king {
+      border-radius: 8px;
+      width: 88%;
+      height: 80%;
+    }
+
+    .piece.yours.king {
+      background: linear-gradient(160deg, #ffe066 0%, #c8922a 40%, #7a5510 100%);
+      box-shadow:
+        0 4px 0 #5a3a08,
+        0 6px 14px rgba(0,0,0,0.7),
+        inset 0 1px 4px rgba(255,255,180,0.6);
+      border: 2px solid #e8b84b;
+      border-radius: 6px 6px 4px 4px;
+    }
+
+    .piece.enemy.king {
+      background: linear-gradient(160deg, #ff6666 0%, #8b2020 40%, #2a0404 100%);
+      box-shadow:
+        0 4px 0 #1a0202,
+        0 6px 14px rgba(0,0,0,0.8),
+        inset 0 1px 4px rgba(255,120,120,0.4);
+      border: 2px solid #cc3333;
+      border-radius: 6px 6px 4px 4px;
+    }
+
+    .piece.king::before { display: none; }
+
+    .piece.king::after {
+      content: '♛';
+      font-size: clamp(1rem, 3vw, 1.4rem);
+      line-height: 1;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.9));
+    }
+
+    .piece.yours.king::after { color: #fff8c0; }
+    .piece.enemy.king::after { color: #ffc0c0; }
+
+    @keyframes crownBurst {
+      0%   { transform: scale(0.5) rotate(-15deg); opacity: 0; }
+      60%  { transform: scale(1.25) rotate(5deg); opacity: 1; }
+      80%  { transform: scale(0.95) rotate(-2deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .piece.king-entering { animation: crownBurst 0.5s cubic-bezier(.34,1.56,.64,1) both; }
+
+    /* ── MESSAGE ── */
+    .message {
+      font-family: var(--font-mono);
+      font-size: clamp(0.7rem, 2vw, 0.85rem);
+      color: var(--gold);
+      letter-spacing: 0.1em;
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    /* ── CARDS ── */
+    .cards-section {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+      flex-shrink: 0;
+    }
+
+    .cards-label-text {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--gray-light);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      align-self: flex-start;
+    }
+
+    .cards-hand {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 4px;
+      height: 100px;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding: 12px 4px 4px;
+      scrollbar-width: none;
+    }
+    .cards-hand::-webkit-scrollbar { display: none; }
+
+    .card {
+      width: 60px;
+      min-width: 60px;
+      height: 80px;
+      background: linear-gradient(160deg, #1e1a10, #0d0b06);
+      border: 1.5px solid #3d2e12;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.25s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s, border-color 0.15s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      flex-shrink: 0;
+      overflow: visible;
+    }
+
+    .card:nth-child(odd)  { transform: rotate(-3deg) translateY(6px); }
+    .card:nth-child(even) { transform: rotate(3deg)  translateY(6px); }
+
+    .card:hover:not(.used) { transform: rotate(0deg) translateY(-8px) !important; border-color: var(--gold); }
+
+    .card.active {
+      transform: rotate(0deg) translateY(-28px) scale(1.18) !important;
+      border-color: var(--gold-light) !important;
+      background: linear-gradient(160deg, #2a2010, #1a1208);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.9), 0 0 0 2px var(--gold-light);
+      z-index: 20;
+    }
+
+    .card.used {
+      opacity: 0.3;
+      cursor: not-allowed;
+      filter: grayscale(1);
+    }
+    .card.used:hover { transform: rotate(-3deg) translateY(6px) !important; border-color: #3d2e12 !important; }
+
+    .card-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15rem;
+      padding: 0.3rem 0.25rem;
+      width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+      border-radius: 6px;
+    }
+
+    .card-icon {
+      font-size: 1.3rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .card-name {
+      font-family: var(--font-mono);
+      font-size: 0.48rem;
+      color: var(--gold);
+      text-align: center;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      line-height: 1.2;
+      width: 100%;
+      overflow: hidden;
+      word-break: break-word;
+      hyphens: auto;
+    }
+
+    .card-desc { display: none; }
+
+    .card-corner {
+      position: absolute;
+      top: 3px;
+      left: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.45rem;
+      color: var(--gray-light);
+      line-height: 1;
+    }
+
+    /* ── BUTTONS ── */
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .btn {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--gray-mid);
+      color: var(--gray-light);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn:hover { border-color: var(--gold); color: var(--gold); }
+    .btn.primary { border-color: var(--gold); color: var(--gold); }
+
+    /* ── OVERLAY ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.2rem;
+      z-index: 50;
+      padding: 2rem;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+
+    .overlay.active { opacity: 1; pointer-events: all; }
+
+    .overlay-title {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 10vw, 5rem);
+      letter-spacing: 0.08em;
+      line-height: 1;
+    }
+
+    .overlay-title.win { color: var(--gold-light); text-shadow: 0 0 30px rgba(200,146,42,0.5); }
+    .overlay-title.lose { color: var(--red-light); }
+
+    .overlay-sub {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--cream);
+      max-width: 340px;
+      line-height: 1.7;
+    }
+
+    .overlay-btn {
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 0.75rem 2rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .overlay-btn:hover { background: var(--gold); color: var(--black); }
+
+    @keyframes pulse-gold {
+      from { box-shadow: 0 0 0 3px var(--gold-light), 0 4px 12px rgba(0,0,0,0.7); }
+      to { box-shadow: 0 0 0 5px rgba(232,184,75,0.4), 0 4px 12px rgba(0,0,0,0.7); }
+    }
+
+    .piece.selected-piece { animation: pulse-gold 0.8s ease-in-out infinite alternate; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title">KING ME</div>
+    <div class="level-badge">
+      <div class="level-label">Level</div>
+      <div class="level-number" id="levelNum">1</div>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="status-label">Your Pieces</div>
+      <div class="status-value yours" id="yourCount">3</div>
+    </div>
+    <div class="status-item">
+      <div class="status-label">Enemy</div>
+      <div class="status-value enemy" id="enemyCount">5</div>
+    </div>
+    <div class="status-item">
+      <div class="status-label">Board</div>
+      <div class="status-value cards" id="boardSizeDisplay">6×6</div>
+    </div>
+    <div class="status-item">
+      <div class="status-label">Cards</div>
+      <div class="status-value cards" id="cardCount">0</div>
+    </div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="message" id="message">Select one of your pieces to move.</div>
+
+  <div class="cards-section">
+    <div class="cards-label-text">Your Cards</div>
+    <div class="cards-hand" id="cardsHand"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="resetGame()">New Run</button>
+    <button class="btn primary" onclick="resetLevel()">Restart Level</button>
+  </div>
+</div>
+
+<!-- WIN OVERLAY -->
+<div class="overlay" id="winOverlay">
+  <div class="overlay-title win">CLEARED</div>
+  <div class="overlay-sub" id="winSub">All enemy pieces captured.<br>Choose a card to add to your collection.</div>
+  <div id="cardChoices" style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;"></div>
+  <button class="overlay-btn" onclick="nextLevel()" id="continueBtn" style="display:none">Continue to Level <span id="nextLevelNum">2</span></button>
+</div>
+
+<!-- LOSE OVERLAY -->
+<div class="overlay" id="loseOverlay">
+  <div class="overlay-title lose">NO MOVES</div>
+  <div class="overlay-sub">You have no valid moves remaining.<br>Your run ends here.</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--gray-light);letter-spacing:0.1em;" id="finalLevel">You reached Level 1</div>
+  <button class="overlay-btn" onclick="resetGame()">New Run</button>
+</div>
+
+<script>
+// ── CARD DEFINITIONS ──
+const CARD_DEFS = {
+  // ── COMMON (gray) ──
+  vertical_jump:   { name: 'Infantry March', icon: '🏰', desc: 'March straight up or down, capturing all enemies in the line', rarity: 'common',   color: '#3a3228' },
+  horizontal_jump: { name: 'Cavalry March',  icon: '⚔️', desc: 'Charge left or right, capturing all enemies in the line',      rarity: 'common',   color: '#3a3228' },
+  king_me:         { name: 'King Me',        icon: '♛',  desc: 'Instantly crown one of your pieces',                           rarity: 'common',   color: '#3a3228' },
+  revert:          { name: 'Demotion',       icon: '↩',  desc: 'Strip a piece of rank, back to a foot soldier',                rarity: 'common',   color: '#3a3228' },
+  teleport:        { name: 'Phantom March',  icon: '👁️', desc: 'Appear anywhere on the battlefield instantly',                 rarity: 'common',   color: '#3a3228' },
+  // ── UNCOMMON (green) — one use per battle, piece reverts after ──
+  double_jump:     { name: 'War Horse',      icon: '🐴', desc: 'Leap over 3 side-by-side enemies in any direction. Piece reverts.', rarity: 'uncommon', color: '#1a3320' },
+  t_strike:        { name: 'Cannon',         icon: '💣', desc: 'Detonate your position — wipes entire row and column.',             rarity: 'uncommon', color: '#1a3320' },
+  usurp:           { name: 'Usurp',          icon: '👑', desc: 'Replace any enemy piece with your own. No combat required.',        rarity: 'uncommon', color: '#1a3320' },
+  // ── RARE (blue) — one use per entire RUN ──
+  wrath:           { name: 'Wrath',          icon: '⚡', desc: 'Divine fury — destroys every enemy on the board. One use per run.', rarity: 'rare',     color: '#0a1a3a' },
+};
+
+const RARITY_WEIGHTS = {
+  common:   60,
+  uncommon: 35,
+  rare:     0,
+  epic:     0,
+};
+
+const CARD_POOL_BY_RARITY = {
+  common:   ['vertical_jump', 'horizontal_jump', 'king_me', 'revert', 'teleport'],
+  uncommon: ['double_jump', 't_strike', 'usurp', 'siege_breaker', 'cross_strike', 'assassinate'],
+  rare:     [], // wrath handled separately below
+  epic:     [],
+};
+
+function getWeightedCardChoices(count = 3) {
+  const choices = [];
+  const used = new Set();
+
+  // 15% chance the entire set of 3 contains ONE rare (Wrath)
+  const includeRare = Math.random() * 100 < 15;
+  const rareSlot = includeRare ? Math.floor(Math.random() * count) : -1;
+
+  let attempts = 0;
+  while (choices.length < count && attempts < 100) {
+    attempts++;
+
+    // If this slot should be the rare
+    if (choices.length === rareSlot && !used.has('wrath')) {
+      used.add('wrath');
+      choices.push('wrath');
+      continue;
+    }
+
+    // Otherwise pick common or uncommon
+    const roll = Math.random() * 100;
+    const chosenRarity = roll < 63 ? 'common' : 'uncommon';
+    const pool = CARD_POOL_BY_RARITY[chosenRarity];
+    if (!pool || pool.length === 0) continue;
+    const card = pool[Math.floor(Math.random() * pool.length)];
+    if (!card || !CARD_DEFS[card]) continue;
+    if (!used.has(card)) {
+      used.add(card);
+      choices.push(card);
+    }
+  }
+  return choices;
+}
+
+const STARTER_CARDS = ['vertical_jump', 'vertical_jump', 'horizontal_jump', 'king_me', 'revert'];
+
+// ── CARD CHOICE POOL ──
+function getCardChoices() {
+  return getWeightedCardChoices(3);
+}
+
+// ── STATE ──
+let state = {};
+
+function initState() {
+  state = {
+    level: 1,
+    board: [],
+    selected: null,
+    validMoves: [],
+    cards: STARTER_CARDS.map((id, i) => ({ id, used: false, uid: i })),
+    activeCard: null,
+    activeCardUid: null,
+    lastUsedCard: null,
+    usedCardsThisBattle: [],
+    shieldedPiece: null,
+    pieceIdCounter: 0,
+    cardUidCounter: STARTER_CARDS.length,
+    levelsCompleted: 0,
+    boardSize: 6,
+    gameOver: false,
+  };
+  setupLevel();
+}
+
+function getBoardSize() {
+  if (state.level <= 1) return 6;
+  if (state.level <= 2) return 7;
+  if (state.level <= 3) return 8;
+  if (state.level <= 4) return 9;
+  if (state.level <= 6) return 10;
+  if (state.level <= 7) return 11;
+  if (state.level <= 8) return 12;
+  if (state.level <= 9) return 13;
+  return 14;
+}
+
+function getDarkSquares() {
+  const bs = getBoardSize();
+  const squares = [];
+  for (let r = 0; r < bs; r++) {
+    for (let c = 0; c < bs; c++) {
+      if ((r + c) % 2 === 1) squares.push({ r, c });
+    }
+  }
+  return squares;
+}
+
+function getBoardShape() {
+  const bs = getBoardSize();
+  const cells = [];
+  for (let r = 0; r < bs; r++)
+    for (let c = 0; c < bs; c++)
+      cells.push({r, c});
+  return cells;
+}
+
+function setupLevel() {
+  let valid = false;
+  let attempts = 0;
+
+  while (!valid && attempts < 200) {
+    attempts++;
+
+    const BS = getBoardSize();
+    state.board = [];
+    for (let r = 0; r < BS; r++) {
+      state.board.push([]);
+      for (let c = 0; c < BS; c++) {
+        state.board[r].push({ piece: null });
+      }
+    }
+
+    const shapeCells = getBoardShape();
+    const shapeSet = new Set(shapeCells.map(({r,c}) => `${r},${c}`));
+
+    // Count available cards — use actual hand or starter cards for level 1
+    const cardList = (state.cards && state.cards.length > 0)
+      ? state.cards.filter(c => !c.used)
+      : STARTER_CARDS.map(id => ({ id }));
+    const availCardIds = new Set(cardList.map(c => c.id));
+    // Count usurp cards specifically — each one can handle exactly one row 0 enemy
+    const usurpCount = cardList.filter(c => c.id === 'usurp').length;
+    const freePlacement = state.level >= 4;
+    const anySquare = state.level >= 7;
+
+    // YOUR pieces
+    let yourPool;
+    if (freePlacement) {
+      yourPool = shapeCells.filter(({r}) => r >= BS - 3);
+    } else {
+      yourPool = shapeCells.filter(({r,c}) => r === BS - 1 && (r+c)%2 === 1);
+    }
+    for (let i = yourPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [yourPool[i], yourPool[j]] = [yourPool[j], yourPool[i]];
+    }
+    const yourSquares = yourPool.slice(0, 3);
+    yourSquares.forEach(({r,c}) => {
+      state.board[r][c].piece = { type:'yours', king:false, id:state.pieceIdCounter++, ability:null, wasKing:false };
+    });
+
+    const occupiedByYours = new Set(yourSquares.map(({r,c}) => `${r},${c}`));
+
+    // Enemy placement — only restriction is row 0 (capped at usurpCount)
+    // and light squares before level 9. Winnability check handles the rest.
+    let row0Slots = 0;
+
+    let enemyPool = shapeCells.filter(({r,c}) => {
+      if (occupiedByYours.has(`${r},${c}`)) return false;
+      if (r === 0) {
+        if (row0Slots < usurpCount) { row0Slots++; return true; }
+        return false;
+      }
+      if ((r+c) % 2 === 0 && !anySquare) return false;
+      return true;
+    });;
+
+    for (let i = enemyPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [enemyPool[i], enemyPool[j]] = [enemyPool[j], enemyPool[i]];
+    }
+
+    // Aggressive scaling: level 1=50%, level 10=85%
+    const targetFill = Math.min(0.50 + (state.level - 1) * 0.04, 0.85);
+    const enemyCount = Math.max(4, Math.min(Math.round(enemyPool.length * targetFill), enemyPool.length));
+
+    let placed = 0;
+    for (let i = 0; i < enemyPool.length && placed < enemyCount; i++) {
+      const {r, c} = enemyPool[i];
+      if (!state.board[r][c].piece) {
+        state.board[r][c].piece = { type:'enemy', king:false, id:state.pieceIdCounter++, ability:null };
+        placed++;
+      }
+    }
+
+    // Guarantee each piece has at least one valid first move
+    // A valid move requires ACTUAL empty space — not just card existence
+    yourSquares.forEach(({r, c}) => {
+      let hasMove = false;
+
+      // 1. Standard diagonal — empty square ahead
+      for (const dc of [-1, 1]) {
+        const nr = r - 1, nc = c + dc;
+        if (nr < 0 || nc < 0 || nc >= BS) continue;
+        if (!state.board[nr][nc].piece) { hasMove = true; break; }
+        // Capture: enemy with empty landing
+        const lr = nr-1, lc = nc+dc;
+        if (lr >= 0 && lc >= 0 && lc < BS &&
+            state.board[nr][nc].piece?.type === 'enemy' &&
+            !state.board[lr][lc].piece) { hasMove = true; break; }
+      }
+
+      // 2. Infantry — needs at least one EMPTY square in column (not just enemies)
+      if (!hasMove) {
+        for (let rr = 0; rr < BS; rr++) {
+          if (rr !== r && !state.board[rr][c].piece) { hasMove = true; break; }
+        }
+      }
+
+      // 3. Cavalry — needs at least one EMPTY square in row
+      if (!hasMove) {
+        for (let cc = 0; cc < BS; cc++) {
+          if (cc !== c && !state.board[r][cc].piece) { hasMove = true; break; }
+        }
+      }
+
+      // 4. Cannon always works — fires in place, no empty space needed
+      if (!hasMove) {
+        for (let rr = 0; rr < BS; rr++)
+          if (rr !== r && state.board[rr][c].piece?.type === 'enemy') { hasMove = true; break; }
+        if (!hasMove) for (let cc = 0; cc < BS; cc++)
+          if (cc !== c && state.board[r][cc].piece?.type === 'enemy') { hasMove = true; break; }
+      }
+
+      if (!hasMove) {
+        // Force clear the two forward diagonal squares so piece can always move
+        for (const dc of [-1, 1]) {
+          const nr = r - 1, nc = c + dc;
+          if (nr < 0 || nc < 0 || nc >= BS) continue;
+          if (state.board[nr][nc].piece?.type === 'enemy') {
+            state.board[nr][nc].piece = null;
+            placed--;
+          }
+        }
+      }
+    });
+
+    if (isBoardWinnable()) valid = true;
+  }
+
+  state.selected = null;
+  state.validMoves = [];
+  state.activeCard = null;
+  state.activeCardUid = null;
+  state.usedCardsThisBattle = [];
+  state.shieldedPiece = null;
+  state.cards = state.cards.map(c => ({...c, used:false}));
+
+  render();
+  setMessage('Select one of your pieces to move.');
+}
+
+// ── WINNABILITY ALGORITHM ──
+// For every enemy, check if it can actually be captured — not just reached
+function isBoardWinnable() {
+  const bs = getBoardSize();
+  const anySquareMode = state.level >= 20;
+
+  const cardCounts = {};
+  (state.cards && state.cards.length > 0
+    ? state.cards.filter(c => !c.used)
+    : STARTER_CARDS.map(id => ({id}))
+  ).forEach(c => { cardCounts[c.id] = (cardCounts[c.id] || 0) + 1; });
+
+  const hasInfantry = (cardCounts['vertical_jump'] || 0) > 0;
+  const hasCavalry = (cardCounts['horizontal_jump'] || 0) > 0;
+  const hasCannon = (cardCounts['t_strike'] || 0) > 0;
+  const hasCrossStrike = (cardCounts['cross_strike'] || 0) > 0;
+  const hasAssassinate = (cardCounts['assassinate'] || 0) > 0;
+  let assassinatesLeft = cardCounts['assassinate'] || 0;
+  let usurpsLeft = cardCounts['usurp'] || 0;
+  let phantomsLeft = cardCounts['teleport'] || 0;
+
+  // Collect pieces and enemies
+  const pieces = [];
+  const enemies = [];
+  for (let r = 0; r < bs; r++) {
+    for (let c = 0; c < bs; c++) {
+      const p = state.board[r][c].piece;
+      if (p?.type === 'yours') pieces.push({r, c});
+      if (p?.type === 'enemy') enemies.push({r, c});
+    }
+  }
+
+  // Check 1: at least one piece has a valid first move
+  let hasFirstMove = false;
+  for (const {r, c} of pieces) {
+    if (hasFirstMove) break;
+    // Standard diagonal
+    for (const dc of [-1, 1]) {
+      const nr = r-1, nc = c+dc;
+      if (nr < 0 || nc < 0 || nc >= bs) continue;
+      const t = state.board[nr][nc].piece;
+      if (!t) { hasFirstMove = true; break; }
+      if (t.type === 'enemy') {
+        const lr=nr-1, lc=nc+dc;
+        if (lr>=0 && lc>=0 && lc<bs && !state.board[lr][lc].piece) { hasFirstMove=true; break; }
+      }
+    }
+    // Infantry — any empty square in column
+    if (!hasFirstMove && hasInfantry) {
+      for (let rr=0; rr<bs; rr++) {
+        if (rr!==r && !state.board[rr][c].piece) { hasFirstMove=true; break; }
+      }
+    }
+    // Cavalry — any empty square in row
+    if (!hasFirstMove && hasCavalry) {
+      for (let cc=0; cc<bs; cc++) {
+        if (cc!==c && !state.board[r][cc].piece) { hasFirstMove=true; break; }
+      }
+    }
+    // Cannon — fires from current position
+    if (!hasFirstMove && hasCannon) {
+      for (let rr=0; rr<bs; rr++) if(rr!==r && state.board[rr][c].piece?.type==='enemy') { hasFirstMove=true; break; }
+      if (!hasFirstMove) for (let cc=0; cc<bs; cc++) if(cc!==c && state.board[r][cc].piece?.type==='enemy') { hasFirstMove=true; break; }
+    }
+    if (!hasFirstMove && usurpsLeft > 0) hasFirstMove = true;
+    if (!hasFirstMove && phantomsLeft > 0) hasFirstMove = true;
+  }
+  if (!hasFirstMove) return false;
+
+  // Check 2: every enemy must be reachable
+  // Key insight: Cannon wipes entire row+col from any piece position — no movement, no landing
+  // So any enemy sharing a row OR column with ANY piece is always clearable by Cannon
+  const pieceRows = new Set(pieces.map(p => p.r));
+  const pieceCols = new Set(pieces.map(p => p.c));
+
+  for (const {r: er, c: ec} of enemies) {
+    const angles = countCaptureAngles(er, ec, bs);
+    const isLight = (er+ec)%2===0;
+
+    // Standard diagonal capture possible
+    if (angles > 0 && !isLight) continue;
+
+    // Cannon covers any enemy in same row or column as any piece
+    if (hasCannon && (pieceRows.has(er) || pieceCols.has(ec))) continue;
+    // Cross Strike covers diagonals from piece positions
+    if (hasCrossStrike) {
+      let onDiagonal = false;
+      for (const {r: pr, c: pc} of pieces) {
+        if (Math.abs(pr - er) === Math.abs(pc - ec)) { onDiagonal = true; break; }
+      }
+      if (onDiagonal) continue;
+    }
+
+    // Infantry covers same column
+    if (hasInfantry && pieceCols.has(ec)) continue;
+
+    // Cavalry covers same row
+    if (hasCavalry && pieceRows.has(er)) continue;
+
+    // Phantom March can reach any square
+    if (phantomsLeft > 0) { phantomsLeft--; continue; }
+
+    // Usurp can replace any enemy
+    if (usurpsLeft > 0) { usurpsLeft--; continue; }
+
+    return false;
+  }
+
+  return true;
+}
+
+function countCaptureAngles(r, c, bs) {
+  let angles = 0;
+  for (const dr of [-1,1]) for (const dc of [-1,1]) {
+    const lr = r+dr, lc = c+dc, ar = r-dr, ac = c-dc;
+    if (lr>=0&&lr<bs&&lc>=0&&lc<bs&&ar>=0&&ar<bs&&ac>=0&&ac<bs) angles++;
+  }
+  return angles;
+}
+
+function canCaptureEnemy(er, ec, yourPieces, availableCards, bs) {
+  for (const {r, c, piece} of yourPieces) {
+
+    // 1. USURP — replace any enemy, no movement needed
+    if (availableCards.has('usurp')) return true;
+
+    // 2. TELEPORT — move to any square, then capture diagonally next move
+    //    Only valid if there's a diagonal attack square adjacent to the enemy
+    if (availableCards.has('teleport')) {
+      for (const dr of [-1, 1]) {
+        for (const dc of [-1, 1]) {
+          const ar = er - dr; // attack from this square
+          const ac = ec - dc;
+          if (ar < 0 || ar >= bs || ac < 0 || ac >= bs) continue;
+          if (state.board[ar][ac].piece) continue; // must be empty to land on
+          const lr = er + dr; // landing after capture
+          const lc = ec + dc;
+          if (lr >= 0 && lr < bs && lc >= 0 && lc < bs && !state.board[lr][lc].piece) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // 3. VERTICAL JUMP (card or ability) — same column, need empty landing square beyond
+    if (piece.ability === 'vertical_jump' || availableCards.has('vertical_jump')) {
+      if (c === ec) {
+        // Can slide into same column and capture — need landing square above or below enemy
+        for (const dr of [-1, 1]) {
+          const lr = er + dr;
+          if (lr >= 0 && lr < bs && !state.board[lr][ec].piece) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // 4. HORIZONTAL JUMP (card or ability) — same row, need empty landing square beyond
+    if (piece.ability === 'horizontal_jump' || availableCards.has('horizontal_jump')) {
+      if (r === er) {
+        for (const dc of [-1, 1]) {
+          const lc = ec + dc;
+          if (lc >= 0 && lc < bs && !state.board[er][lc].piece) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // 5. KING ME — crowns piece, then it can reach enemy diagonally from any angle
+    //    BUT king still needs a landing square beyond the enemy to capture
+    if (availableCards.has('king_me') || piece.king) {
+      // Check all 4 diagonal approaches to this enemy
+      for (const dr of [-1, 1]) {
+        for (const dc of [-1, 1]) {
+          const lr = er + dr;
+          const lc = ec + dc;
+          if (lr >= 0 && lr < bs && lc >= 0 && lc < bs && !state.board[lr][lc].piece) {
+            // There's a valid landing square — king can reach enemy from opposite side
+            return true;
+          }
+        }
+      }
+    }
+
+    // 6. DOUBLE JUMP — 2 side-by-side enemies, not useful for isolated corner enemy
+    //    Skip — handled by standard diagonal check
+
+    // 7. T-STRIKE — same row or column, wipes all enemies in line
+    if (availableCards.has('t_strike')) {
+      if (c === ec || r === er) return true;
+    }
+
+    // 8. STANDARD DIAGONAL — BFS capture check
+    if (canCaptureViaDiagonal(r, c, er, ec, bs)) return true;
+  }
+  return false;
+}
+
+// BFS: can piece at (fromR, fromC) reach and CAPTURE enemy at (toR, toC)?
+// Capture requires: land adjacent, enemy there, empty square beyond
+function canCaptureViaDiagonal(fromR, fromC, toR, toC, bs) {
+  // First check: can the enemy even be captured at all?
+  // Need at least one diagonal approach: attack square on one side, landing on the other
+  let hasLanding = false;
+  for (const dr of [-1, 1]) {
+    for (const dc of [-1, 1]) {
+      // Attack from (toR-dr, toC-dc), land at (toR+dr, toC+dc)
+      const ar = toR - dr;
+      const ac = toC - dc;
+      const lr = toR + dr;
+      const lc = toC + dc;
+      const attackValid = ar >= 0 && ar < bs && ac >= 0 && ac < bs;
+      const landValid = lr >= 0 && lr < bs && lc >= 0 && lc < bs && !state.board[lr][lc].piece;
+      if (attackValid && landValid) {
+        hasLanding = true;
+        break;
+      }
+    }
+    if (hasLanding) break;
+  }
+  if (!hasLanding) return false;
+
+  // BFS from piece position to any attack square adjacent to enemy
+  const visited = new Set();
+  const queue = [{r: fromR, c: fromC, depth: 0}];
+  visited.add(`${fromR},${fromC}`);
+
+  while (queue.length > 0) {
+    const {r, c, depth} = queue.shift();
+    if (depth > bs * 2) continue;
+
+    // Check if current position can attack the enemy
+    for (const dr of [-1, 1]) {
+      for (const dc of [-1, 1]) {
+        if (r + dr === toR && c + dc === toC) {
+          // We are adjacent to the enemy — can we capture?
+          const lr = toR + dr;
+          const lc = toC + dc;
+          if (lr >= 0 && lr < bs && lc >= 0 && lc < bs && !state.board[lr][lc].piece) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Move to adjacent empty squares
+    for (const dr of [-1, 1]) {
+      for (const dc of [-1, 1]) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= bs || nc < 0 || nc >= bs) continue;
+        const cell = state.board[nr][nc].piece;
+        if (!cell && !visited.has(`${nr},${nc}`)) {
+          visited.add(`${nr},${nc}`);
+          queue.push({r: nr, c: nc, depth: depth + 1});
+        }
+      }
+    }
+  }
+  return false;
+}
+
+
+// ── MOVEMENT RULES ──
+function getVerticalMoves(row, col) {
+  const bs = getBoardSize();
+  const moves = [];
+  for (const dr of [-1, 1]) {
+    for (let steps = 1; steps < bs; steps++) {
+      const nr = row + (dr * steps);
+      if (nr < 0 || nr >= bs) break;
+      const cell = state.board[nr][col].piece;
+      if (!cell) {
+        moves.push({ row: nr, col, type: 'move' });
+      } else if (cell.type === 'enemy') {
+        if (state.shieldedPiece && state.shieldedPiece.row === nr && state.shieldedPiece.col === col) break;
+        const lr = nr + dr;
+        if (lr >= 0 && lr < bs && !state.board[lr][col].piece) {
+          moves.push({ row: lr, col, type: 'capture', over: { row: nr, col } });
+        }
+        break;
+      } else break;
+    }
+  }
+  return moves;
+}
+
+function getHorizontalMoves(row, col) {
+  const bs = getBoardSize();
+  const moves = [];
+  for (const dc of [-1, 1]) {
+    for (let steps = 1; steps < bs; steps++) {
+      const nc = col + (dc * steps);
+      if (nc < 0 || nc >= bs) break;
+      const cell = state.board[row][nc].piece;
+      if (!cell) {
+        moves.push({ row, col: nc, type: 'move' });
+      } else if (cell.type === 'enemy') {
+        if (state.shieldedPiece && state.shieldedPiece.row === row && state.shieldedPiece.col === nc) break;
+        const lc = nc + dc;
+        if (lc >= 0 && lc < bs && !state.board[row][lc].piece) {
+          moves.push({ row, col: lc, type: 'capture', over: { row, col: nc } });
+        }
+        break;
+      } else break;
+    }
+  }
+  return moves;
+}
+
+function getValidMoves(row, col) {
+  const piece = state.board[row][col].piece;
+  if (!piece || piece.type !== 'yours') return [];
+
+  const bs = getBoardSize();
+  const ability = state.activeCard || piece.ability;
+
+  if (ability === 'vertical_jump') return getVerticalMoves(row, col);
+  if (ability === 'horizontal_jump') return getHorizontalMoves(row, col);
+
+  // TELEPORT — any empty square on the board
+  if (ability === 'teleport') {
+    const moves = [];
+    for (let r = 0; r < bs; r++)
+      for (let c = 0; c < bs; c++)
+        if (!state.board[r][c].piece) moves.push({ row: r, col: c, type: 'move' });
+    return moves;
+  }
+
+  // WAR HORSE — leap over 3 side-by-side enemies in any direction
+  if (ability === 'double_jump') {
+    const moves = [];
+    const directions = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+    directions.forEach(([dr, dc]) => {
+      const e1r = row+dr,   e1c = col+dc;
+      const e2r = row+dr*2, e2c = col+dc*2;
+      const e3r = row+dr*3, e3c = col+dc*3;
+      const ldr = row+dr*4, ldc = col+dc*4;
+      if ([e1r,e2r,e3r,ldr].some(r=>r<0||r>=bs)) return;
+      if ([e1c,e2c,e3c,ldc].some(c=>c<0||c>=bs)) return;
+      const p1 = state.board[e1r][e1c].piece;
+      const p2 = state.board[e2r][e2c].piece;
+      const p3 = state.board[e3r][e3c].piece;
+      if (p1?.type==='enemy' && p2?.type==='enemy' && p3?.type==='enemy' && !state.board[ldr][ldc].piece) {
+        moves.push({ row:ldr, col:ldc, type:'double_capture',
+          over:{row:e1r,col:e1c}, over2:{row:e2r,col:e2c}, over3:{row:e3r,col:e3c} });
+      }
+    });
+    return moves;
+  }
+
+  // T-STRIKE — piece stays in place, wipes entire row AND column
+  // Returns a special "detonate" move at current position
+  if (ability === 't_strike') {
+    const captured = [];
+    for (let r = 0; r < bs; r++) {
+      if (r !== row && state.board[r][col].piece?.type === 'enemy')
+        captured.push({row: r, col});
+    }
+    for (let c = 0; c < bs; c++) {
+      if (c !== col && state.board[row][c].piece?.type === 'enemy')
+        captured.push({row, col: c});
+    }
+    if (captured.length > 0) {
+      return [{ row, col, type: 't_detonate', captured, stayInPlace: true }];
+    }
+    return [];
+  }
+
+  // KING ME card — handled in cellClick directly
+  if (ability === 'king_me') return [];
+
+  // SIEGE BREAKER — leap over exactly 3 consecutive enemies in a line, no gaps needed
+  if (ability === 'siege_breaker') {
+    const moves = [];
+    const directions = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+    directions.forEach(([dr, dc]) => {
+      const e1r = row+dr,   e1c = col+dc;
+      const e2r = row+dr*2, e2c = col+dc*2;
+      const e3r = row+dr*3, e3c = col+dc*3;
+      const lr  = row+dr*4, lc  = col+dc*4;
+      if ([e1r,e2r,e3r,lr].some(r=>r<0||r>=bs)) return;
+      if ([e1c,e2c,e3c,lc].some(c=>c<0||c>=bs)) return;
+      const p1 = state.board[e1r][e1c].piece;
+      const p2 = state.board[e2r][e2c].piece;
+      const p3 = state.board[e3r][e3c].piece;
+      if (p1?.type==='enemy' && p2?.type==='enemy' && p3?.type==='enemy' && !state.board[lr][lc].piece) {
+        moves.push({row:lr, col:lc, type:'triple_capture',
+          over:{row:e1r,col:e1c}, over2:{row:e2r,col:e2c}, over3:{row:e3r,col:e3c}});
+      }
+    });
+    return moves;
+  }
+
+  // CROSS STRIKE — wipe both diagonal axes from piece position (handled in cellClick)
+  if (ability === 'cross_strike') return [];
+
+  // ASSASSINATE — target any enemy (handled in cellClick)
+  if (ability === 'assassinate') return [];
+
+  // KING — bishop movement
+  if (piece.king) {
+    const moves = [];
+    [-1, 1].forEach(dr => {
+      [-1, 1].forEach(dc => {
+        for (let steps = 1; steps < bs; steps++) {
+          const nr = row + dr * steps;
+          const nc = col + dc * steps;
+          if (nr < 0 || nr >= bs || nc < 0 || nc >= bs) break;
+          const target = state.board[nr][nc].piece;
+          if (!target) {
+            moves.push({ row: nr, col: nc, type: 'move' });
+          } else if (target.type === 'enemy') {
+            if (state.shieldedPiece && state.shieldedPiece.row === nr && state.shieldedPiece.col === nc) break;
+            const lr = nr + dr, lc = nc + dc;
+            if (lr >= 0 && lr < bs && lc >= 0 && lc < bs && !state.board[lr][lc].piece) {
+              moves.push({ row: lr, col: lc, type: 'capture', over: { row: nr, col: nc } });
+            }
+            break;
+          } else break;
+        }
+      });
+    });
+    return moves;
+  }
+
+  // Standard diagonal movement (normal piece, no card, no ability)
+  const moves = [];
+  [-1].forEach(dr => {
+    [-1, 1].forEach(dc => {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr < 0 || nr >= bs || nc < 0 || nc >= bs) return;
+      const target = state.board[nr][nc].piece;
+      if (!target) {
+        moves.push({ row: nr, col: nc, type: 'move' });
+      } else if (target.type === 'enemy') {
+        if (state.shieldedPiece && state.shieldedPiece.row === nr && state.shieldedPiece.col === nc) return;
+        const lr = nr + dr, lc = nc + dc;
+        if (lr >= 0 && lr < bs && lc >= 0 && lc < bs && !state.board[lr][lc].piece) {
+          moves.push({ row: lr, col: lc, type: 'capture', over: { row: nr, col: nc } });
+        }
+      }
+    });
+  });
+  return moves;
+}
+
+function hasAnyValidMove() {
+  const bsM = getBoardSize();
+  for (let r = 0; r < bsM; r++) {
+    for (let c = 0; c < bsM; c++) {
+      const p = state.board[r][c].piece;
+      if (p && p.type === 'yours') {
+        if (getValidMoves(r, c).length > 0) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ── INTERACTION ──
+function cellClick(row, col) {
+  if (state.gameOver) return;
+
+  const cell = state.board[row][col];
+
+  // Step 1: if card active but no piece selected yet
+  if (state.activeCard && !state.selected) {
+    // Revert — directly tap a piece, no destination needed
+    if (state.activeCard === 'revert' && cell.piece && cell.piece.type === 'yours') {
+      cell.piece.ability = null;
+      cell.piece.king = false;
+      cell.piece.wasKing = false; // revert clears king history — can be kinged again
+      markCardUsed('revert');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Piece reverted to a common pawn. It can be kinged again.');
+      return;
+    }
+    // T-Strike — tap your piece to detonate row+column
+    if (state.activeCard === 't_strike' && cell.piece && cell.piece.type === 'yours') {
+      const bs = getBoardSize();
+      const r = row, c = col;
+      const captured = [];
+      for (let rr = 0; rr < bs; rr++) {
+        if (rr !== r && state.board[rr][c].piece?.type === 'enemy') captured.push({row: rr, col: c});
+      }
+      for (let cc = 0; cc < bs; cc++) {
+        if (cc !== c && state.board[r][cc].piece?.type === 'enemy') captured.push({row: r, col: cc});
+      }
+      if (captured.length === 0) {
+        setMessage('No enemies in this row or column. Pick a different piece.');
+        return;
+      }
+      const usedCard = state.activeCard;
+      markCardUsed(usedCard);
+      state.lastUsedCard = null;
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      // Animate then remove
+      animateTStrike(r, c, captured, () => {
+        captured.forEach(cap => { state.board[cap.row][cap.col].piece = null; });
+        render();
+        setMessage('T-Strike! Row and column detonated.');
+        if (countPieces('enemy') === 0) { triggerWin(); return; }
+        if (!hasAnyValidMove()) { triggerLose(); return; }
+      });
+      return;
+    }
+
+    // Assassinate — tap any enemy to remove instantly
+    if (state.activeCard === 'assassinate' && cell.piece && cell.piece.type === 'enemy') {
+      cell.piece = null;
+      markCardUsed('assassinate');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Assassinated! Target eliminated.');
+      if (countPieces('enemy') === 0) { triggerWin(); return; }
+      if (!hasAnyValidMove()) { triggerLose(); return; }
+      return;
+    }
+
+    // Cross Strike — tap your piece to detonate both diagonal axes
+    if (state.activeCard === 'cross_strike' && cell.piece && cell.piece.type === 'yours') {
+      const bs = getBoardSize();
+      const r = row, c = col;
+      const captured = [];
+      for (const dr of [-1,1]) for (const dc of [-1,1]) {
+        for (let s=1; s<bs; s++) {
+          const nr=r+dr*s, nc=c+dc*s;
+          if (nr<0||nr>=bs||nc<0||nc>=bs) break;
+          if (state.board[nr][nc].piece?.type==='enemy') captured.push({row:nr,col:nc});
+          else if (state.board[nr][nc].piece?.type==='yours') break;
+        }
+      }
+      if (captured.length === 0) { setMessage('No enemies on your diagonals. Pick another piece.'); return; }
+      const usedCard = state.activeCard;
+      markCardUsed(usedCard);
+      state.lastUsedCard = null;
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      animateTStrike(r, c, captured, () => {
+        captured.forEach(cap => { state.board[cap.row][cap.col].piece = null; });
+        render();
+        setMessage('Cross Strike! Both diagonal axes detonated.');
+        if (countPieces('enemy') === 0) { triggerWin(); return; }
+        if (!hasAnyValidMove()) { triggerLose(); return; }
+      });
+      return;
+    }
+
+    // Wrath — destroy ALL enemies, one use per run
+    if (state.activeCard === 'wrath') {
+      const usedCard = state.activeCard;
+      markCardUsed(usedCard);
+      // Mark as used FOR ENTIRE RUN — remove from hand permanently
+      state.cards = state.cards.filter(c => c.id !== 'wrath');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      // Collect all enemies
+      const bs = getBoardSize();
+      const allEnemies = [];
+      for (let r = 0; r < bs; r++)
+        for (let c = 0; c < bs; c++)
+          if (state.board[r][c].piece?.type === 'enemy') allEnemies.push({row:r, col:c});
+      animateTStrike(2, 3, allEnemies, () => {
+        allEnemies.forEach(e => { state.board[e.row][e.col].piece = null; });
+        render();
+        setMessage('WRATH! Divine fury has consumed the battlefield.');
+        if (countPieces('enemy') === 0) { triggerWin(); return; }
+      });
+      return;
+    }
+
+    // King Me — tap a piece to instantly crown it
+    if (state.activeCard === 'king_me' && cell.piece && cell.piece.type === 'yours') {
+      cell.piece.king = true;
+      cell.piece.wasKing = true;
+      cell.piece.ability = null;
+      markCardUsed('king_me');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Piece crowned! It now moves like a bishop.');
+      return;
+    }
+    // Usurp — tap an enemy piece to replace it with a new yours piece
+    if (state.activeCard === 'usurp' && cell.piece && cell.piece.type === 'enemy') {
+      cell.piece = { type: 'yours', king: false, ability: null, id: state.pieceIdCounter++ };
+      markCardUsed('usurp');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Enemy usurped! That square is yours now.');
+      // Check win
+      if (countPieces('enemy') === 0) { triggerWin(); return; }
+      if (!hasAnyValidMove()) { triggerLose(); return; }
+      return;
+    }
+    if (cell.piece && cell.piece.type === 'yours') {
+      state.selected = { row, col };
+      state.validMoves = getValidMoves(row, col);
+      render();
+      setMessage('Now pick a destination.');
+      return;
+    }
+    return;
+  }
+
+  // Step 2: if card active AND piece selected, execute card move
+  if (state.activeCard && state.selected) {
+    // Revert card — tap your own piece to strip its ability
+    if (state.activeCard === 'revert' && cell.piece && cell.piece.type === 'yours') {
+      cell.piece.ability = null;
+      cell.piece.king = false;
+      cell.piece.wasKing = false; // revert clears king history
+      markCardUsed('revert');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Piece reverted to a common pawn. It can be kinged again.');
+      return;
+    }
+    // Assassinate in step 2
+    if (state.activeCard === 'assassinate' && cell.piece && cell.piece.type === 'enemy') {
+      cell.piece = null;
+      markCardUsed('assassinate');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Assassinated! Target eliminated.');
+      if (countPieces('enemy') === 0) { triggerWin(); return; }
+      if (!hasAnyValidMove()) { triggerLose(); return; }
+      return;
+    }
+
+    // Cross Strike in step 2
+    if (state.activeCard === 'cross_strike' && cell.piece && cell.piece.type === 'yours') {
+      const bs = getBoardSize();
+      const r = row, c = col;
+      const captured = [];
+      for (const dr of [-1,1]) for (const dc of [-1,1]) {
+        for (let s=1; s<bs; s++) {
+          const nr=r+dr*s, nc=c+dc*s;
+          if (nr<0||nr>=bs||nc<0||nc>=bs) break;
+          if (state.board[nr][nc].piece?.type==='enemy') captured.push({row:nr,col:nc});
+          else if (state.board[nr][nc].piece?.type==='yours') break;
+        }
+      }
+      if (captured.length === 0) { setMessage('No enemies on your diagonals. Pick another piece.'); return; }
+      const usedCard = state.activeCard;
+      markCardUsed(usedCard);
+      state.lastUsedCard = null;
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      animateTStrike(r, c, captured, () => {
+        captured.forEach(cap => { state.board[cap.row][cap.col].piece = null; });
+        render();
+        setMessage('Cross Strike! Both diagonal axes detonated.');
+        if (countPieces('enemy') === 0) { triggerWin(); return; }
+        if (!hasAnyValidMove()) { triggerLose(); return; }
+      });
+      return;
+    }
+
+    // Wrath in step 2 — activates immediately on any tap
+    if (state.activeCard === 'wrath') {
+      const usedCard = state.activeCard;
+      markCardUsed(usedCard);
+      state.cards = state.cards.filter(c => c.id !== 'wrath');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      const bs = getBoardSize();
+      const allEnemies = [];
+      for (let r = 0; r < bs; r++)
+        for (let c = 0; c < bs; c++)
+          if (state.board[r][c].piece?.type === 'enemy') allEnemies.push({row:r, col:c});
+      animateTStrike(2, 3, allEnemies, () => {
+        allEnemies.forEach(e => { state.board[e.row][e.col].piece = null; });
+        render();
+        setMessage('WRATH! Divine fury has consumed the battlefield.');
+        if (countPieces('enemy') === 0) { triggerWin(); return; }
+      });
+      return;
+    }
+
+    // T-Strike in step 2 also
+    if (state.activeCard === 't_strike' && cell.piece && cell.piece.type === 'yours') {
+      const bs = getBoardSize();
+      const r = row, c = col;
+      const captured = [];
+      for (let rr = 0; rr < bs; rr++) {
+        if (rr !== r && state.board[rr][c].piece?.type === 'enemy') captured.push({row: rr, col: c});
+      }
+      for (let cc = 0; cc < bs; cc++) {
+        if (cc !== c && state.board[r][cc].piece?.type === 'enemy') captured.push({row: r, col: cc});
+      }
+      if (captured.length === 0) {
+        setMessage('No enemies in this row or column. Pick a different piece.');
+        return;
+      }
+      const usedCard = state.activeCard;
+      markCardUsed(usedCard);
+      state.lastUsedCard = null;
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      animateTStrike(r, c, captured, () => {
+        captured.forEach(cap => { state.board[cap.row][cap.col].piece = null; });
+        render();
+        setMessage('T-Strike! Row and column detonated.');
+        if (countPieces('enemy') === 0) { triggerWin(); return; }
+        if (!hasAnyValidMove()) { triggerLose(); return; }
+      });
+      return;
+    }
+
+    // King Me in step 2 also
+    if (state.activeCard === 'king_me' && cell.piece && cell.piece.type === 'yours') {
+      cell.piece.king = true;
+      cell.piece.wasKing = true;
+      cell.piece.ability = null;
+      markCardUsed('king_me');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Piece crowned! It now moves like a bishop.');
+      return;
+    }
+    // Usurp in step 2
+    if (state.activeCard === 'usurp' && cell.piece && cell.piece.type === 'enemy') {
+      cell.piece = { type: 'yours', king: false, ability: null, id: state.pieceIdCounter++ };
+      markCardUsed('usurp');
+      state.activeCard = null;
+      state.activeCardUid = null;
+      state.selected = null;
+      state.validMoves = [];
+      render();
+      setMessage('Enemy usurped! That square is yours now.');
+      if (countPieces('enemy') === 0) { triggerWin(); return; }
+      if (!hasAnyValidMove()) { triggerLose(); return; }
+      return;
+    }
+    const validTarget = state.validMoves.find(m => m.row === row && m.col === col);
+    if (validTarget) {
+      const usedCard = state.activeCard;
+      markCardUsed(usedCard);
+      state.lastUsedCard = usedCard;
+      state.activeCard = null;
+      executeMove(state.selected.row, state.selected.col, validTarget);
+      return;
+    }
+    // Reselect a different piece
+    if (cell.piece && cell.piece.type === 'yours') {
+      state.selected = { row, col };
+      state.validMoves = getValidMoves(row, col);
+      render();
+      return;
+    }
+    // Cancel selection (keep card active)
+    state.selected = null;
+    state.validMoves = [];
+    render();
+    return;
+  }
+
+  // Normal flow: check valid move target
+  const validTarget = state.validMoves.find(m => m.row === row && m.col === col);
+  if (validTarget && state.selected) {
+    executeMove(state.selected.row, state.selected.col, validTarget);
+    return;
+  }
+
+  // Select your piece
+  if (cell.piece && cell.piece.type === 'yours') {
+    state.selected = { row, col };
+    state.validMoves = getValidMoves(row, col);
+    render();
+    if (state.validMoves.length === 0) {
+      setMessage('No valid moves for this piece. Try another.');
+    } else {
+      const p = cell.piece;
+      const abilityStr = p.king ? 'King' : p.ability ? p.ability.replace('_', ' ') : 'standard';
+      setMessage(`Piece selected (${abilityStr}) — ${state.validMoves.length} move(s) available.`);
+    }
+    return;
+  }
+
+  // Deselect
+  state.selected = null;
+  state.validMoves = [];
+  render();
+  setMessage('Select one of your pieces to move.');
+}
+
+function executeMove(fromRow, fromCol, move) {
+  const piece = state.board[fromRow][fromCol].piece;
+
+  // Assign ability based on card used
+  if (state.lastUsedCard) {
+    const usedDef = CARD_DEFS[state.lastUsedCard];
+    if (usedDef && usedDef.rarity === 'uncommon') {
+      // Uncommon cards: one-shot, piece reverts after use
+      piece.ability = null;
+      piece.king = false;
+    } else if (state.lastUsedCard === 'vertical_jump' || state.lastUsedCard === 'horizontal_jump') {
+      // Common movement cards: permanently assign to piece, strip king
+      piece.king = false;
+      piece.ability = state.lastUsedCard;
+    } else if (state.lastUsedCard === 'teleport') {
+      piece.king = false;
+      piece.ability = null;
+    }
+  }
+  state.lastUsedCard = null;
+
+  state.board[fromRow][fromCol].piece = null;
+  if (move.type === 'capture') {
+    state.board[move.over.row][move.over.col].piece = null;
+  } else if (move.type === 'double_capture') {
+    state.board[move.over.row][move.over.col].piece = null;
+    state.board[move.over2.row][move.over2.col].piece = null;
+    if (move.over3) state.board[move.over3.row][move.over3.col].piece = null;
+  } else if ((move.type === 't_capture' || move.type === 't_detonate') && move.captured) {
+    move.captured.forEach(cap => {
+      state.board[cap.row][cap.col].piece = null;
+    });
+  } else if (move.type === 'triple_capture') {
+    state.board[move.over.row][move.over.col].piece = null;
+    state.board[move.over2.row][move.over2.col].piece = null;
+    state.board[move.over3.row][move.over3.col].piece = null;
+  }
+  // triple_capture: piece moves to landing square (already handled by default move logic below)
+  // t_detonate: piece stays in place (fromRow/fromCol === move.row/col)
+  if (!move.stayInPlace) {
+    state.board[move.row][move.col].piece = piece;
+  } else {
+    state.board[fromRow][fromCol].piece = piece; // keep it where it was
+  }
+
+  // King promotion — reaching back row
+  // Only crown if: never been kinged before AND no ability (ability pieces don't get kinged by movement)
+  if (piece.type === 'yours' && move.row === 0 && !piece.king && !piece.wasKing && !piece.ability) {
+    piece.king = true;
+    piece.wasKing = true;
+    piece.ability = null;
+  }
+
+  state.shieldedPiece = null;
+  state.selected = null;
+  state.validMoves = [];
+  state.activeCard = null;
+
+  // Check win
+  if (countPieces('enemy') === 0) {
+    triggerWin();
+    return;
+  }
+
+  // Check lose
+  if (!hasAnyValidMove()) {
+    triggerLose();
+    return;
+  }
+
+  render();
+  setMessage('Select one of your pieces to move.');
+}
+
+function markCardUsed(cardId) {
+  // Mark the specific card by uid if we have it, else first unused matching id
+  const uid = state.activeCardUid;
+  const card = uid !== null
+    ? state.cards.find(c => c.uid === uid)
+    : state.cards.find(c => c.id === cardId && !c.used);
+  if (card) card.used = true;
+  state.activeCardUid = null;
+}
+
+function activateCard(uid) {
+  const card = state.cards.find(c => c.uid === uid);
+  if (!card || card.used) return;
+
+  if (state.activeCardUid === uid) {
+    state.activeCardUid = null;
+    state.activeCard = null;
+    state.selected = null;
+    state.validMoves = [];
+    render();
+    setMessage('Card cancelled. Select a piece to move.');
+    return;
+  }
+
+  state.activeCardUid = uid;
+  state.activeCard = card.id;
+  state.selected = null;
+  state.validMoves = [];
+  render();
+
+  if (card.id === 'vertical_jump') setMessage('INFANTRY MARCH — select a piece to march straight up or down.');
+  else if (card.id === 'horizontal_jump') setMessage('CAVALRY MARCH — select a piece to charge left or right.');
+  else if (card.id === 'king_me') setMessage('KING ME — tap one of your pieces to crown it instantly.');
+  else if (card.id === 'teleport') setMessage('PHANTOM MARCH — select a piece, then appear anywhere on the battlefield.');
+  else if (card.id === 'revert') setMessage('DEMOTION — tap a piece to strip it of all rank.');
+  else if (card.id === 'double_jump') setMessage('WAR HORSE — select a piece. Leap over 3 side-by-side enemies.');
+  else if (card.id === 't_strike') setMessage('CANNON — tap one of your pieces to detonate its row and column.');
+  else if (card.id === 'usurp') setMessage('USURP — tap any enemy piece to claim it as your own.');
+  else if (card.id === 'wrath') setMessage('WRATH — tap to unleash divine fury. All enemies fall. One use per run.');
+  else if (card.id === 'siege_breaker') setMessage('SIEGE BREAKER — select a piece, then leap over 3 enemies in a line.');
+  else if (card.id === 'cross_strike') setMessage('CROSS STRIKE — tap a piece to detonate both diagonal axes.');
+  else if (card.id === 'assassinate') setMessage('ASSASSINATE — tap any enemy to remove them from the board.');
+}
+
+// ── WIN / LOSE ──
+function countPieces(type) {
+  let count = 0;
+  const bsC = getBoardSize();
+  for (let r = 0; r < bsC; r++)
+    for (let c = 0; c < bsC; c++)
+      if (state.board[r][c].piece?.type === type) count++;
+  return count;
+}
+
+function triggerWin() {
+  state.gameOver = true;
+  state.levelsCompleted++;
+  render();
+
+  const choicesEl = document.getElementById('cardChoices');
+  choicesEl.innerHTML = '';
+  const earnCard = true;
+
+  if (earnCard) {
+    document.getElementById('winSub').textContent = `Level ${state.level} cleared! Every 3 levels earns a card — choose one.`;
+    const choices = getCardChoices();
+    choices.forEach(cardId => {
+      const def = CARD_DEFS[cardId];
+      const isUncommon = def.rarity === 'uncommon';
+      const isRareCard = def.rarity === 'rare';
+      const iconColor = isRareCard ? '#88bbff' : isUncommon ? '#7dcc7d' : '#e8b84b';
+      const borderColor = isRareCard ? '#1a3a6a' : isUncommon ? '#2d6a2d' : '#444';
+      const hoverColor = isRareCard ? '#4488ff' : isUncommon ? '#5aaa5a' : '#c8922a';
+      const rarityLabel = isRareCard
+        ? '<span style="font-size:0.5rem;color:#4488ff;letter-spacing:0.1em;text-transform:uppercase;">Rare</span>'
+        : isUncommon ? '<span style="font-size:0.5rem;color:#5aaa5a;letter-spacing:0.1em;text-transform:uppercase;">Uncommon</span>' : '';
+      const btn = document.createElement('button');
+      btn.style.cssText = `background:${def.color || '#1a1a1a'};border:1px solid ${borderColor};color:#e8dcc8;font-family:"Courier Prime",monospace;font-size:0.7rem;padding:0.75rem 1rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:0.35rem;min-width:90px;transition:border-color 0.15s;border-radius:4px;`;
+      btn.innerHTML = `<span style="font-size:1.5rem;color:${iconColor};">${def.icon}</span><span style="font-weight:700">${def.name}</span><span style="color:#888;font-size:0.6rem;text-align:center;line-height:1.3">${def.desc}</span>${rarityLabel}`;
+      btn.onmouseover = () => btn.style.borderColor = hoverColor;
+      btn.onmouseout = () => btn.style.borderColor = borderColor;
+      btn.onclick = () => {
+        const copies = cardId === 'assassinate' ? 3 : 1;
+        for (let i = 0; i < copies; i++) {
+          state.cards.push({ id: cardId, used: false, uid: state.cardUidCounter++ });
+        }
+        choicesEl.querySelectorAll('button').forEach(b => b.style.opacity = '0.4');
+        btn.style.borderColor = hoverColor;
+        btn.style.opacity = '1';
+        document.getElementById('continueBtn').style.display = 'inline-block';
+        document.getElementById('nextLevelNum').textContent = state.level + 1;
+      };
+      choicesEl.appendChild(btn);
+    });
+  } else {
+    const remaining = 3 - (state.levelsCompleted % 3);
+    document.getElementById('winSub').textContent = `Level ${state.level} cleared! ${remaining} more level${remaining > 1 ? 's' : ''} until your next card.`;
+    document.getElementById('continueBtn').style.display = 'inline-block';
+    document.getElementById('nextLevelNum').textContent = state.level + 1;
+  }
+
+  document.getElementById('winOverlay').classList.add('active');
+}
+
+function triggerLose() {
+  state.gameOver = true;
+  render();
+  document.getElementById('finalLevel').textContent = `You reached Level ${state.level}`;
+  document.getElementById('loseOverlay').classList.add('active');
+}
+
+function nextLevel() {
+  state.level++;
+  state.gameOver = false;
+  document.getElementById('winOverlay').classList.remove('active');
+  setupLevel();
+}
+
+function resetLevel() {
+  state.gameOver = false;
+  document.getElementById('loseOverlay').classList.remove('active');
+  document.getElementById('winOverlay').classList.remove('active');
+  setupLevel();
+}
+
+function resetGame() {
+  document.getElementById('loseOverlay').classList.remove('active');
+  document.getElementById('winOverlay').classList.remove('active');
+  initState();
+}
+
+// ── T-STRIKE ANIMATION ──
+function animateTStrike(anchorRow, anchorCol, captured, onComplete) {
+  const boardEl = document.getElementById('board');
+  const bs = getBoardSize();
+  const boardRect = boardEl.getBoundingClientRect();
+  const cellW = boardRect.width / bs;
+  const cellH = boardRect.height / bs;
+
+  // Create a canvas overlay on top of the board
+  const canvas = document.createElement('canvas');
+  canvas.width = boardRect.width;
+  canvas.height = boardRect.height;
+  canvas.style.cssText = `
+    position:absolute;
+    top:0;left:0;
+    width:${boardRect.width}px;
+    height:${boardRect.height}px;
+    pointer-events:none;
+    z-index:50;
+  `;
+  document.querySelector('.board-wrap').style.position = 'relative';
+  document.querySelector('.board-wrap').appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  const anchorX = anchorCol * cellW + cellW / 2;
+  const anchorY = anchorRow * cellH + cellH / 2;
+
+  let startTime = null;
+  const PHASE1 = 300;   // pulse
+  const PHASE2 = 800;   // lines grow
+  const PHASE3 = 1600;  // explosions
+  const TOTAL  = 2200;
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function draw(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+    const t = Math.min(elapsed / TOTAL, 1);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Phase 1: anchor pulse rings
+    if (elapsed < PHASE2) {
+      const pt = Math.min(elapsed / PHASE1, 1);
+      for (let ring = 0; ring < 3; ring++) {
+        const ringT = Math.max(0, pt - ring * 0.25);
+        if (ringT <= 0) continue;
+        const radius = ringT * cellW * 1.2;
+        const alpha = (1 - ringT) * 0.8;
+        ctx.beginPath();
+        ctx.arc(anchorX, anchorY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 180, 0, ${alpha})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+
+    // Phase 2: lines growing from anchor outward
+    if (elapsed >= PHASE1 && elapsed < PHASE3) {
+      const lt = easeOut(Math.min((elapsed - PHASE1) / (PHASE2 - PHASE1), 1));
+      const alpha = elapsed < PHASE2 ? 1 : Math.max(0, 1 - (elapsed - PHASE2) / 200);
+
+      // Horizontal line
+      ctx.save();
+      const hGrad = ctx.createLinearGradient(0, anchorY, boardRect.width, anchorY);
+      hGrad.addColorStop(0, 'rgba(255,80,0,0)');
+      hGrad.addColorStop(0.3, `rgba(255,150,0,${alpha})`);
+      hGrad.addColorStop(0.5, `rgba(255,220,0,${alpha})`);
+      hGrad.addColorStop(0.7, `rgba(255,150,0,${alpha})`);
+      hGrad.addColorStop(1, 'rgba(255,80,0,0)');
+      ctx.fillStyle = hGrad;
+      // Grow from center outward
+      const hHalfW = lt * boardRect.width / 2;
+      ctx.fillRect(anchorX - hHalfW, anchorY - 4, hHalfW * 2, 8);
+      ctx.shadowColor = '#ff8800';
+      ctx.shadowBlur = 15;
+      ctx.fill();
+      ctx.restore();
+
+      // Vertical line
+      ctx.save();
+      const vGrad = ctx.createLinearGradient(anchorX, 0, anchorX, boardRect.height);
+      vGrad.addColorStop(0, 'rgba(255,80,0,0)');
+      vGrad.addColorStop(0.3, `rgba(255,150,0,${alpha})`);
+      vGrad.addColorStop(0.5, `rgba(255,220,0,${alpha})`);
+      vGrad.addColorStop(0.7, `rgba(255,150,0,${alpha})`);
+      vGrad.addColorStop(1, 'rgba(255,80,0,0)');
+      ctx.fillStyle = vGrad;
+      const vHalfH = lt * boardRect.height / 2;
+      ctx.fillRect(anchorX - 4, anchorY - vHalfH, 8, vHalfH * 2);
+      ctx.shadowColor = '#ff8800';
+      ctx.shadowBlur = 15;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Phase 3: enemy explosions
+    if (elapsed >= PHASE2) {
+      const perEnemy = 150;
+      captured.forEach((cap, i) => {
+        const enemyStart = PHASE2 + i * perEnemy;
+        if (elapsed < enemyStart) return;
+        const et = Math.min((elapsed - enemyStart) / 500, 1);
+        const ex = cap.col * cellW + cellW / 2;
+        const ey = cap.row * cellH + cellH / 2;
+
+        // Expanding shockwave
+        const shockR = et * cellW * 1.5;
+        const shockA = Math.max(0, 1 - et * 1.2);
+        ctx.beginPath();
+        ctx.arc(ex, ey, shockR, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 120, 0, ${shockA})`;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Inner fireball
+        if (et < 0.6) {
+          const fireR = et * cellW * 0.9;
+          const fireA = Math.max(0, 1 - et * 1.5);
+          const fireGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, fireR);
+          fireGrad.addColorStop(0, `rgba(255,255,200,${fireA})`);
+          fireGrad.addColorStop(0.4, `rgba(255,180,0,${fireA * 0.8})`);
+          fireGrad.addColorStop(1, `rgba(255,50,0,0)`);
+          ctx.beginPath();
+          ctx.arc(ex, ey, fireR, 0, Math.PI * 2);
+          ctx.fillStyle = fireGrad;
+          ctx.fill();
+        }
+
+        // Particles flying out
+        const numParticles = 6;
+        for (let p = 0; p < numParticles; p++) {
+          const angle = (p / numParticles) * Math.PI * 2;
+          const dist = et * cellW * 1.2;
+          const px = ex + Math.cos(angle) * dist;
+          const py = ey + Math.sin(angle) * dist;
+          const pa = Math.max(0, 1 - et * 1.3);
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, ${Math.floor(150 * (1-et))}, 0, ${pa})`;
+          ctx.fill();
+        }
+
+        // Hide the DOM piece by overlaying black
+        if (et > 0.3) {
+          const coverA = Math.min((et - 0.3) / 0.4, 1);
+          ctx.beginPath();
+          ctx.arc(ex, ey, cellW * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(13,13,13,${coverA})`;
+          ctx.fill();
+        }
+      });
+    }
+
+    if (elapsed < TOTAL) {
+      requestAnimationFrame(draw);
+    } else {
+      canvas.remove();
+      onComplete();
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// ── RENDER ──
+function render() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  const bsR = getBoardSize();
+  const shapeSet = new Set(getBoardShape().map(({r,c}) => `${r},${c}`));
+  document.getElementById('board').style.gridTemplateColumns = `repeat(${bsR}, 1fr)`;
+  document.getElementById('board').style.gridTemplateRows = `repeat(${bsR}, 1fr)`;
+  for (let r = 0; r < bsR; r++) {
+    for (let c = 0; c < bsR; c++) {
+      const cell = document.createElement('div');
+      const isDark = (r + c) % 2 === 1;
+      const inShape = shapeSet.has(`${r},${c}`);
+      if (!inShape) {
+        cell.className = 'cell';
+        cell.style.background = 'transparent';
+        cell.style.cursor = 'default';
+        cell.style.pointerEvents = 'none';
+        boardEl.appendChild(cell);
+        continue;
+      }
+      cell.className = `cell ${isDark ? 'dark' : 'light'}`;
+
+      // Highlight selected
+      if (state.selected && state.selected.row === r && state.selected.col === c) {
+        cell.classList.add('selected');
+      }
+
+      // Valid moves
+      const validMove = state.validMoves.find(m => m.row === r && m.col === c);
+      if (validMove) {
+        cell.classList.add(validMove.type === 'capture' ? 'valid-capture' : 'valid-move');
+      }
+
+      // Piece
+      const { piece } = state.board[r][c];
+      if (piece) {
+        const pieceEl = document.createElement('div');
+        pieceEl.className = `piece ${piece.type}`;
+        if (piece.king) {
+          pieceEl.classList.add('king');
+          pieceEl.classList.add('king-entering');
+        }
+        if (state.selected && state.selected.row === r && state.selected.col === c) {
+          pieceEl.classList.add('selected-piece');
+        }
+
+        // Shield indicator
+        if (state.shieldedPiece && state.shieldedPiece.row === r && state.shieldedPiece.col === c) {
+          pieceEl.style.boxShadow = '0 0 0 3px #4488ff, 0 3px 8px rgba(0,0,0,0.6)';
+        }
+
+        // Ability indicator on piece — large and visible
+        if (piece.ability && !piece.king) {
+          const abilityBadge = document.createElement('div');
+          abilityBadge.style.cssText = `
+            position:absolute;
+            top:-8px;
+            right:-8px;
+            width:18px;
+            height:18px;
+            border-radius:50%;
+            background:#c8922a;
+            border:1.5px solid #ffe066;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:0.7rem;
+            line-height:1;
+            z-index:5;
+            box-shadow:0 2px 4px rgba(0,0,0,0.8);
+          `;
+          abilityBadge.textContent = piece.ability === 'vertical_jump' ? '↕' : piece.ability === 'horizontal_jump' ? '↔' : '';
+          if (abilityBadge.textContent) pieceEl.appendChild(abilityBadge);
+        }
+
+        cell.appendChild(pieceEl);
+      }
+
+      cell.addEventListener('click', () => cellClick(r, c));
+      boardEl.appendChild(cell);
+    }
+  }
+
+  // Update status
+  document.getElementById('yourCount').textContent = countPieces('yours');
+  document.getElementById('enemyCount').textContent = countPieces('enemy');
+  document.getElementById('cardCount').textContent = state.cards.filter(c => !c.used).length;
+  const bsDisp = getBoardSize(); document.getElementById('boardSizeDisplay').textContent = `${bsDisp}×${bsDisp}`;
+  document.getElementById('levelNum').textContent = state.level;
+
+  // Render cards hand
+  const cardsHand = document.getElementById('cardsHand');
+  cardsHand.innerHTML = '';
+
+  // Group cards by id — stack duplicates
+  const cardGroups = [];
+  state.cards.forEach(card => {
+    const existing = cardGroups.find(g => g.id === card.id);
+    if (existing) {
+      existing.cards.push(card);
+    } else {
+      cardGroups.push({ id: card.id, cards: [card] });
+    }
+  });
+
+  cardGroups.forEach((group, idx) => {
+    const def = CARD_DEFS[group.id];
+    const isUncommon = def.rarity === 'uncommon';
+    const isRare = def.rarity === 'rare';
+    const borderColor = isRare ? '#1a3a6a' : isUncommon ? '#2d6a2d' : '#3d2e12';
+    const activeBorder = isRare ? '#4488ff' : isUncommon ? '#5aaa5a' : '#e8b84b';
+
+    // Find first unused card in group to use
+    const availableCard = group.cards.find(c => !c.used);
+    const allUsed = !availableCard;
+    const isActive = group.cards.some(c => state.activeCardUid === c.uid);
+
+    // Count available vs total
+    const totalCount = group.cards.length;
+    const usedCount = group.cards.filter(c => c.used).length;
+    const availCount = totalCount - usedCount;
+
+    const el = document.createElement('div');
+    el.className = 'card' + (allUsed ? ' used' : '') + (isActive ? ' active' : '');
+    el.style.background = `linear-gradient(160deg, ${def.color}, #0d0b06)`;
+    el.style.borderColor = isActive ? activeBorder : borderColor;
+    if (isRare) el.style.boxShadow = `0 0 8px rgba(68,136,255,0.4)`;
+    if (isActive) el.style.boxShadow = `0 8px 24px rgba(0,0,0,0.9), 0 0 0 2px ${activeBorder}`;
+
+    // Stack badge if more than 1
+    const stackBadge = totalCount > 1
+      ? `<div style="
+          position:absolute;
+          top:-10px;right:-10px;
+          width:22px;height:22px;
+          border-radius:50%;
+          background:${isUncommon ? '#1a3320' : '#5a3a08'};
+          border:2px solid ${isUncommon ? '#7dcc7d' : '#e8b84b'};
+          font-family:var(--font-mono);
+          font-size:0.75rem;
+          font-weight:700;
+          color:${isUncommon ? '#7dcc7d' : '#e8b84b'};
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          z-index:10;
+          line-height:1;
+          box-shadow:0 2px 6px rgba(0,0,0,0.8);
+          opacity:${allUsed ? 0.3 : 1};
+        ">${availCount}</div>`
+      : '';
+
+    const iconColor = isRare ? '#88bbff' : isUncommon ? '#7dcc7d' : 'var(--gold-light)';
+    const nameColor = isRare ? '#4488ff' : isUncommon ? '#5aaa5a' : 'var(--gold)';
+    const rarityLabel = isRare
+      ? '<span style="font-family:var(--font-mono);font-size:0.42rem;color:#4488ff;letter-spacing:0.08em;text-transform:uppercase;overflow:hidden;width:100%;text-align:center;">Rare</span>'
+      : isUncommon
+      ? '<span style="font-family:var(--font-mono);font-size:0.42rem;color:#5aaa5a;letter-spacing:0.08em;text-transform:uppercase;overflow:hidden;width:100%;text-align:center;">Uncommon</span>'
+      : '';
+    el.innerHTML = `
+      ${stackBadge}
+      <div class="card-inner">
+        <span class="card-icon" style="color:${iconColor};">${def.icon}</span>
+        <span class="card-name" style="color:${nameColor};">${def.name}</span>
+        ${rarityLabel}
+      </div>`;
+
+    if (!allUsed) {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Use the first available card in the group
+        const card = group.cards.find(c => !c.used);
+        if (card) activateCard(card.uid);
+      });
+    }
+    cardsHand.appendChild(el);
+  });
+}
+
+function setMessage(msg) {
+  document.getElementById('message').textContent = msg;
+}
+
+// ── START ──
+initState();
+</script>
+</body>
+</html>
