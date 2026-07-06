@@ -5,7 +5,7 @@
   "start_url": "/King-Me/",
   "scope": "/King-Me/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "theme_color": "#c8922a",
   "background_color": "#0d0b06",
   "icons": [
