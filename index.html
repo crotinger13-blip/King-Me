@@ -5523,9 +5523,9 @@ function saveGame() {
 // render() itself fires once per enemy action during the enemy turn — with
 // a busy board (50+ pieces) that could mean 50+ full saves in a couple of
 // seconds, which was a big chunk of the lag on crowded boards. Collapsing a
-// burst of renders down to one actual save shortly after things settle
-// keeps the save just as reliable (still fires well before the player's
-// next action) without paying that cost on every single intermediate frame.
+// burst of renders down to one save after a genuine idle pause avoids
+// colliding with the player's next tap. visibilitychange/beforeunload still
+// flush a pending save immediately when the app backgrounds or closes.
 let saveGameDebounceTimer = null;
 function scheduleSaveGame() {
   if (tutorial.active) return;
@@ -5533,7 +5533,7 @@ function scheduleSaveGame() {
   saveGameDebounceTimer = setTimeout(() => {
     saveGameDebounceTimer = null;
     saveGame();
-  }, 250);
+  }, 1500);
 }
 // Belt-and-suspenders: if the tab is closed/reloaded while a save is still
 // pending, flush it immediately instead of losing that last bit of progress.
@@ -7564,26 +7564,17 @@ function updatePlusTurnUI() {
   document.getElementById('plusMovesCount').textContent = `${movesLeft}/${pieceCount}`;
   document.getElementById('plusCardsCount').textContent = `${cardsLeft}/${cardBudget}`;
 
-  // Strict rule: you cannot voluntarily end your turn while you still have
-  // move budget left AND a legal move actually exists somewhere on the
-  // board — you have to move if you can. Once that's no longer true (either
-  // every piece has moved, or nothing left can legally move), End Turn opens
-  // up regardless of any unused card charges — those simply go unused.
-  const mustKeepMoving = movesLeft > 0 && hasAnyValidMove();
-  endBtn.disabled = state.gameOver || state.turnPhase !== 'player' || mustKeepMoving;
+  // End Turn remains available even when movement or card actions remain.
+  // Keep this control tappable throughout the player's phase. A disabled
+  // button emitted no event on phones, making End Turn appear broken. Any
+  // unused moves or card actions now simply expire when the player passes.
+  const tutorialBlocksEndTurn = tutorial.active && tutorial.step !== 2 && tutorial.step !== 4;
+  endBtn.disabled = state.gameOver || state.turnPhase !== 'player' || tutorialBlocksEndTurn;
 }
 
-// The only way a player turn in New Run Plus advances to the enemy now —
-// blocked outright while the mandatory-move rule still applies.
+// The player can deliberately pass at any point in their turn.
 function endPlayerTurn() {
   if (state.mode !== 'plus' || state.turnPhase !== 'player' || state.gameOver || (typeof blackHoleAnimationRunning !== 'undefined' && blackHoleAnimationRunning)) return;
-  const pieceCount = state.plusTurnPieceCount != null ? state.plusTurnPieceCount : countPieces('yours');
-  const movesUsed = state.plusMovedIds ? state.plusMovedIds.length : 0;
-  const movesLeft = Math.max(0, pieceCount - movesUsed);
-  if (movesLeft > 0 && hasAnyValidMove()) {
-    setMessage('YOU STILL HAVE A LEGAL MOVE — YOU MUST MOVE');
-    return;
-  }
   startEnemyTurn();
 }
 
