@@ -5260,6 +5260,42 @@ function playDeadMansHandSound() {
   // A harmless callback keeps card activation independent from optional audio.
 }
 
+// These optional sound assets are not embedded in the lightweight browser
+// index. Their callbacks must still exist because CARD_SOUND_FX references
+// them while the script initializes; an absent callback stops the entire game.
+function playPhantomMarchSound() {}
+function playOnceMoreSound() {}
+function playWarHorseSound() {}
+function playBallistaSound() {}
+function playCrossStrikeSound() {}
+function playCatapultLaunchSound() {}
+function playMadCowLaunchSound() {}
+function playBearTrapSound() {}
+function playWrathSound() {}
+function playPlagueSound() {}
+function playBlizzardSound() {}
+function playTornadoSound() {}
+function playLocustSwarmSound() {}
+function playMeteorStrikeSound() {}
+
+let mainMenuMusic = null;
+function playMenuMusic() {
+  try {
+    if (!mainMenuMusic) {
+      mainMenuMusic = new Audio(MENU_MUSIC_URL);
+      mainMenuMusic.loop = true;
+      mainMenuMusic.volume = 0.18;
+      mainMenuMusic.preload = 'auto';
+    }
+    const playback = mainMenuMusic.play();
+    if (playback && typeof playback.catch === 'function') playback.catch(() => {});
+  } catch (err) {}
+}
+
+function pauseMenuMusic() {
+  if (mainMenuMusic) mainMenuMusic.pause();
+}
+
 const CARD_SOUND_FX = {
   king_me:        playKingMeSound,
   usurp:          playUsurpSound,
